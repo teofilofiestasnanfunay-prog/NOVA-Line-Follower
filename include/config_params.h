@@ -16,7 +16,7 @@ inline float Kd_default() { return 0.665f; }  // Kd = 0.23529 -> 255*0.23529 ~ 6
 #define RUN_SESSION_MS      4500   // auto-stop window (ms) after a start (GO or button)
 
 // LED patterns
-#define LED2_STROBE_MS       500   // non-blocking toggle interval during run
+#define RUN_STROBE_MS        500   // non-blocking toggle interval during run (blue channel)
 
 // EEPROM layout (same as your previous code)
 #define EE_OFF_BLACK_NEAR   100

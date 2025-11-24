@@ -68,31 +68,31 @@ static void captureArray(int *dst, uint8_t N) {
 }
 
 void Calib_captureBlackNear(int *bn, uint8_t N) {
-  UI_set(true,false);
+  UI_setColor(UiColor::Red);
   captureWaitLong("Black Near");
   captureArray(bn, N);
-  UI_set(false,false);
+  UI_setColor(UiColor::Off);
 }
 
 void Calib_captureBlackFar (int *bf, uint8_t N) {
-  UI_set(true,false);
+  UI_setColor(UiColor::Red);
   captureWaitLong("Black Far");
   captureArray(bf, N);
-  UI_set(false,false);
+  UI_setColor(UiColor::Off);
 }
 
 void Calib_captureWhiteNear(int *wn, uint8_t N) {
-  UI_set(false,true);
+  UI_setColor(UiColor::Cyan);
   captureWaitLong("White Near");
   captureArray(wn, N);
-  UI_set(false,false);
+  UI_setColor(UiColor::Off);
 }
 
 void Calib_captureWhiteFar (int *wf, uint8_t N) {
-  UI_set(false,true);
+  UI_setColor(UiColor::Cyan);
   captureWaitLong("White Far");
   captureArray(wf, N);
-  UI_set(false,false);
+  UI_setColor(UiColor::Off);
 }
 
 void Calib_load(int *bn, int *bf, int *wn, int *wf, uint8_t N) {
@@ -111,7 +111,7 @@ void Calib_save(const int *bn,const int *bf,const int *wn,const int *wf, uint8_t
     EEPROM.write(EE_OFF_WHITE_NEAR + i, (uint8_t)(wn[i] >> 4));
     EEPROM.write(EE_OFF_WHITE_FAR  + i, (uint8_t)(wf[i] >> 4));
   }
-  UI_set(true,false);
+  UI_setColor(UiColor::Green);
   Serial.println(F("Calibration saved to EEPROM."));
 }
 

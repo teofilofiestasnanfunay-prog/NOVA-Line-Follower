@@ -4,59 +4,76 @@
 #include "io.h"
 
 // ================= UI LEDs =================
-static void setRaw(bool l1, bool l2) {
-  digitalWrite(LED1_PIN, l1 ? HIGH : LOW);
-  digitalWrite(LED2_PIN, l2 ? HIGH : LOW);
+static void setRGB(bool r, bool g, bool b) {
+  digitalWrite(LED_PIN_R, r ? HIGH : LOW);
+  digitalWrite(LED_PIN_G, g ? HIGH : LOW);
+  digitalWrite(LED_PIN_B, b ? HIGH : LOW);
+}
+
+static void setColor(UiColor color) {
+  switch (color) {
+    case UiColor::Red:      setRGB(true,  false, false); break;
+    case UiColor::Green:    setRGB(false, true,  false); break;
+    case UiColor::Blue:     setRGB(false, false, true ); break;
+    case UiColor::Yellow:   setRGB(true,  true,  false); break;
+    case UiColor::Cyan:     setRGB(false, true,  true ); break;
+    case UiColor::Magenta:  setRGB(true,  false, true ); break;
+    case UiColor::White:    setRGB(true,  true,  true ); break;
+    case UiColor::Off:
+    default:                setRGB(false, false, false); break;
+  }
 }
 
 void UI_init() {
-  pinMode(LED1_PIN, OUTPUT);
-  pinMode(LED2_PIN, OUTPUT);
-  setRaw(false,false);
+  pinMode(LED_PIN_R, OUTPUT);
+  pinMode(LED_PIN_G, OUTPUT);
+  pinMode(LED_PIN_B, OUTPUT);
+  setColor(UiColor::Off);
 }
 
-void UI_set(bool l1, bool l2) { setRaw(l1,l2); }
+void UI_setColor(UiColor color) { setColor(color); }
+void UI_setRGB(bool r, bool g, bool b) { setRGB(r, g, b); }
 
-static void blinkNTimes(uint8_t pin, uint8_t n, unsigned onMs, unsigned offMs) {
+static void blinkColor(UiColor color, uint8_t n, unsigned onMs, unsigned offMs) {
   for (uint8_t i = 0; i < n; i++) {
-    digitalWrite(pin, HIGH);
+    setColor(color);
     delay(onMs);
-    digitalWrite(pin, LOW);
+    setColor(UiColor::Off);
     delay(offMs);
   }
 }
 
 void UI_previewMode(uint8_t mode) {
-  // Preview with LED1: blink count equals mode number
-  setRaw(false,false);
-  blinkNTimes(LED1_PIN, mode, 120, 80);
+  // Preview: blink count equals mode number (green channel)
+  setColor(UiColor::Off);
+  blinkColor(UiColor::Green, mode, 120, 80);
 }
 
 void UI_confirmMode(uint8_t mode) {
-  // Confirmation with LED2: blink count equals mode number (slightly slower)
-  setRaw(false,false);
-  blinkNTimes(LED2_PIN, mode, 150, 200);
+  // Confirmation: blink count equals mode number (red channel, slightly slower)
+  setColor(UiColor::Off);
+  blinkColor(UiColor::Red, mode, 150, 200);
 }
 
 void UI_showRun(bool running) {
-  digitalWrite(LED2_PIN, running ? HIGH : LOW);
+  setColor(running ? UiColor::Blue : UiColor::Off);
 }
 
-// Non-blocking strobe on LED2 during run
+// Non-blocking strobe on blue channel during run
 void UI_runStrobeUpdate(bool running) {
-  static bool led2_state = true;
+  static bool led_state = true;
   static unsigned long next_ms = 0;
   if (!running) {
-    led2_state = false;
-    digitalWrite(LED2_PIN, LOW);
+    led_state = false;
+    setColor(UiColor::Off);
     next_ms = millis();
     return;
   }
   unsigned long now = millis();
   if ((long)(now - next_ms) >= 0) {
-    led2_state = !led2_state;
-    digitalWrite(LED2_PIN, led2_state ? HIGH : LOW);
-    next_ms = now + LED2_STROBE_MS;
+    led_state = !led_state;
+    setColor(led_state ? UiColor::Blue : UiColor::Off);
+    next_ms = now + RUN_STROBE_MS;
   }
 }
 
@@ -74,23 +91,21 @@ uint8_t ModeBtn_poll() {
     if (digitalRead(PIN_MODE_BTN) != LOW) return 0;
 
     unsigned long t0 = millis();
-    // soft feedback (optional): brief LED1 hint
-    digitalWrite(LED2_PIN, HIGH);
+    // soft feedback while button stays pressed
+    setColor(UiColor::Blue);
 
     while (digitalRead(PIN_MODE_BTN) == LOW) {
       if (millis() - t0 >= LONG_MS) {
         // long press
-        digitalWrite(LED1_PIN, LOW);
-        // confirmation blink (LED1 + LED2)
-        digitalWrite(LED1_PIN, HIGH);
-        digitalWrite(LED2_PIN, HIGH);
-        delay(100);
-        digitalWrite(LED1_PIN, LOW);
-        digitalWrite(LED2_PIN, LOW);
+        setColor(UiColor::White);
+        delay(120);
+        setColor(UiColor::Off);
         return 2;
       }
     }
-    digitalWrite(LED1_PIN, LOW);
+    setColor(UiColor::Green);
+    delay(80);
+    setColor(UiColor::Off);
     return 1; // short press
   }
   return 0;

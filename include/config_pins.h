@@ -3,9 +3,9 @@
 
 // ===================== PINOUT (ATmega328P) =====================
 // Run/Stop from external module: HIGH = run, LOW = stop
-#define PIN_GO           2    // GO/D2
+#define PIN_GO           A5    // GO/A5
 
-// 74HCT4067 (S0..S3) and common output C0→ADC
+// 74HCT4067 (S0..S3) and common output C0->ADC
 #define MUX_S0           A0    // S0/A0
 #define MUX_S1           A1    // S1/A1
 #define MUX_S2           A2    // S2/A2
@@ -25,9 +25,10 @@
 // Mode button (free pushbutton wired to D11)
 #define PIN_MODE_BTN     11     // B1/D11 INPUT_PULLUP (LOW = pressed)
 
-// LEDs
-#define LED1_PIN         7     // LED1/D7
-#define LED2_PIN         A5     // LED2/A5
+// RGB LED channels
+#define LED_PIN_G        7     // GREEN/D7
+#define LED_PIN_R        13    // RED/D13
+#define LED_PIN_B        2     // BLUE/D2
 
 // Sensors
 #define NUM_SENSORS          12

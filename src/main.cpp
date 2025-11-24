@@ -64,7 +64,7 @@ static void stopRace() {
 
 static uint8_t menu_select_mode() {
   Serial.println(F("Menu: 1 = Calibrate, 2 = Run. Short = next, Long = confirm."));
-  UI_set(false,false);
+  UI_setColor(UiColor::Off);
   uint8_t sel = 1;
   #ifdef ENABLE_DIAG
     const uint8_t MAX_MODES = 4; // 1=Calib, 2=Raw, 3=Cal+Pos, 4=Run

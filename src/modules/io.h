@@ -2,13 +2,25 @@
 #include <Arduino.h>
 #include <stdint.h>
 
+enum class UiColor : uint8_t {
+  Off,
+  Red,
+  Green,
+  Blue,
+  Yellow,
+  Cyan,
+  Magenta,
+  White
+};
+
 // UI LEDs
 void UI_init();
-void UI_set(bool l1, bool l2);
-void UI_previewMode(uint8_t mode);   // Preview: LED1 blinks N times (mode)
-void UI_confirmMode(uint8_t mode);   // Confirm: LED2 blinks N times (mode)
-void UI_showRun(bool running);       // LED2 on if running
-void UI_runStrobeUpdate(bool running); // LED2 strobe (non-blocking) if running
+void UI_setColor(UiColor color);
+void UI_setRGB(bool r, bool g, bool b);
+void UI_previewMode(uint8_t mode);     // Preview: Green blinks N times (mode)
+void UI_confirmMode(uint8_t mode);     // Confirm: Red blinks N times (mode)
+void UI_showRun(bool running);         // Blue on if running
+void UI_runStrobeUpdate(bool running); // Blue strobe (non-blocking) if running
 
 // Mode button
 void    ModeBtn_init();
