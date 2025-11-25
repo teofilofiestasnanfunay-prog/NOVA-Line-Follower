@@ -5,7 +5,7 @@
 // Run/Stop from external module: HIGH = run, LOW = stop
 #define PIN_GO           A5    // GO/A5
 
-// 74HCT4067 (S0..S3) and common output C0->ADC
+// 74HCT4067 (S0..S3) and common output C0->Adc
 #define MUX_S0           A0    // S0/A0
 #define MUX_S1           A1    // S1/A1
 #define MUX_S2           A2    // S2/A2

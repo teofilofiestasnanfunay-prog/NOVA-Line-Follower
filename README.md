@@ -29,6 +29,12 @@ Proyecto PlatformIO para un seguidor de linea con dos builds: carrera y diagnost
 
 Seleccion con el boton de modo: pulsacion corta avanza, pulsacion larga confirma. Los LEDs indican el modo seleccionado.
 
+### Modo 1: Calibracion (detalle del algoritmo)
+- Se piden cuatro capturas (Black Near/Far, White Near/Far) con pulsacion larga; los LED guian cada paso (rojo para negro, cyan para blanco).
+- Por sensor se toma el minimo entre los dos negros y el maximo entre los dos blancos; se calcula un margen de blanco `CAL_WHITE_MARGIN_PCT = 10%` del rango (al menos `CAL_WHITE_MARGIN_MIN = 2` unidades) y se resta a `mx` para acercar el blanco a 0.
+- Cada lectura RAW se clampa a `[mn, mx]`, se mapea invertido a `1000..0` y cualquier valor calibrado menor a `CAL_WHITE_CLAMP_BELOW = 50` se fuerza a `0`.
+- Los vectores de captura se guardan en EEPROM comprimidos (`>>4`) tras anunciar `Calibration saved to EEPROM`, antes de reiniciar o pasar a carrera.
+
 **Parada de Emergencia**
 - Si la posicion calibrada permanece en `0` o `11000` durante >= 500 ms, se ejecuta parada de emergencia: motores a 0.
 - Implementacion principal en `src/main.cpp` (buscar "EMERGENCY STOP").
@@ -46,6 +52,7 @@ Seleccion con el boton de modo: pulsacion corta avanza, pulsacion larga confirma
 - Ganancias PD: `include/config_params.h` (`Kp_default`, `Kd_default`)
 - Velocidad base y rampa: `include/config_params.h` (`BASE_PWM_DEFAULT`, `MOTOR_RAMP_*`)
 - Setpoint de linea: `include/config_params.h` (`LINE_SETPOINT`)
+- Retraso inicial opcional tras GO: `include/config_params.h` (`RUN_START_DELAY_ENABLE`, `RUN_START_DELAY_MS`)
 - Numero de sensores y MUX: `include/config_pins.h` (`NUM_SENSORS`, `FIRST_MUX_CHANNEL`)
 
 **Consejos de Diagnostico**

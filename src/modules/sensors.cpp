@@ -112,7 +112,7 @@ void Calib_save(const int *bn,const int *bf,const int *wn,const int *wf, uint8_t
     EEPROM.write(EE_OFF_WHITE_FAR  + i, (uint8_t)(wf[i] >> 4));
   }
   UI_setColor(UiColor::Green);
-  Serial.println(F("Calibration saved to EEPROM."));
+  Serial.println(F("Calibration saved to EEPROM"));
 }
 
 void Sensors_readCalibrated(const int *bn,const int *bf,
@@ -123,12 +123,22 @@ void Sensors_readCalibrated(const int *bn,const int *bf,
     int mn = (bn[i] < bf[i]) ? bn[i] : bf[i];
     int mx = (wn[i] > wf[i]) ? wn[i] : wf[i];
     if (mx < mn) { int t = mx; mx = mn; mn = t; }
+    const int span = mx - mn;
+    int whiteMargin = (span * CAL_WHITE_MARGIN_PCT) / 100;
+    if (whiteMargin < CAL_WHITE_MARGIN_MIN) whiteMargin = CAL_WHITE_MARGIN_MIN;
+    if (mx - whiteMargin > mn) {
+      mx -= whiteMargin;  // pull white bound down so whites tend to clamp to 0
+    } else {
+      mx = mn + 1;        // keep map() denominator > 0
+    }
     int v = raw[i];
     if (v < mn) v = mn;
     if (v > mx) v = mx;
-    cal[i] = static_cast<int>(map(static_cast<long>(v),
-                                  static_cast<long>(mn),
-                                  static_cast<long>(mx),
-                                  1000L, 0L));
+    int mapped = static_cast<int>(map(static_cast<long>(v),
+                                      static_cast<long>(mn),
+                                      static_cast<long>(mx),
+                                      1000L, 0L));
+    if (mapped < CAL_WHITE_CLAMP_BELOW) mapped = 0;
+    cal[i] = mapped;
   }
 }

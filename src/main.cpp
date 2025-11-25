@@ -20,6 +20,9 @@ static bool rampActive = false;
 static unsigned long lastRampMs = 0;
 static bool sessionActive = false;
 static unsigned long sessionStartMs = 0;
+static bool startDelayActive = false;
+static unsigned long startDelayStartMs = 0;
+static bool startDelayFromGo = false;
 static bool sessionFromGo = false; // tracks if current session started from GO
 static int  BASE_PWM = BASE_PWM_DEFAULT;
 static bool emgActive = false;
@@ -41,20 +44,30 @@ static void rampBase_update() {
   }
 }
 
-static void startRace(bool fromGo) {
-  // Start motor ramp immediately
+static void startRaceNow(bool fromGo) {
   basePWM_current = 0;
   lastRampMs = millis();
   rampActive = true;
-  // Start 5s session window (applies to GO or button starts)
   sessionActive = true;
-  sessionStartMs = millis();
-  // Track source to decide if GO lines can stop the run
-  sessionFromGo = fromGo;
+  sessionStartMs = millis(); // run session starts counting when we actually move
+  sessionFromGo = fromGo;    // Track source to decide if GO lines can stop the run
   Serial.println(F(">> START (GO)"));
 }
 
+static void startRace(bool fromGo) {
+  Motors_cmdPct(0,0);
+  if (RUN_START_DELAY_ENABLE && RUN_START_DELAY_MS > 0) {
+    startDelayActive = true;
+    startDelayStartMs = millis();
+    startDelayFromGo = fromGo;
+    Serial.print(F(">> START DELAY ")); Serial.print(RUN_START_DELAY_MS); Serial.println(F(" ms"));
+    return;
+  }
+  startRaceNow(fromGo);
+}
+
 static void stopRace() {
+  startDelayActive = false;
   rampActive = false;
   basePWM_current = 0;
   Motors_cmdPct(0,0);
@@ -106,7 +119,7 @@ void setup() {
     Calib_captureWhiteNear(whiteNear, NUM_SENSORS);
     Calib_captureWhiteFar (whiteFar , NUM_SENSORS);
     Calib_save(blackNear, blackFar, whiteNear, whiteFar, NUM_SENSORS);
-    Serial.println(F("Calibration saved. Reboot or choose Run (Mode 2)."));
+    Serial.println(F("Calibration saved to EEPROM. Reboot or choose Run (Mode 2)."));
     while (1) { Motors_cmdPct(0,0); delay(100); }
   }
   #ifdef ENABLE_DIAG
@@ -143,8 +156,14 @@ void setup() {
 
 // ======== LOOP ========
 void loop() {
+  // Start delay handler: only arm ramp/session after delay expires
+  if (startDelayActive && (millis() - startDelayStartMs >= (unsigned long)RUN_START_DELAY_MS)) {
+    startDelayActive = false;
+    startRaceNow(startDelayFromGo);
+  }
+
   // Start/Stop triggers
-  if (!sessionActive) {
+  if (!sessionActive && !startDelayActive) {
     if (GO_edgeStart())  { startRace(true);  }
     if (ModeBtn_edgePressed()) { startRace(false); }
   }
