@@ -127,7 +127,7 @@ void Sensors_readCalibrated(const int *bn,const int *bf,
     int whiteMargin = (span * CAL_WHITE_MARGIN_PCT) / 100;
     if (whiteMargin < CAL_WHITE_MARGIN_MIN) whiteMargin = CAL_WHITE_MARGIN_MIN;
     if (mx - whiteMargin > mn) {
-      mx -= whiteMargin;  // pull white bound down so whites tend to clamp to 0
+      mx -= whiteMargin;  // pull white bound down so whites tend to clamp to 1000
     } else {
       mx = mn + 1;        // keep map() denominator > 0
     }
@@ -137,7 +137,7 @@ void Sensors_readCalibrated(const int *bn,const int *bf,
     int mapped = static_cast<int>(map(static_cast<long>(v),
                                       static_cast<long>(mn),
                                       static_cast<long>(mx),
-                                      1000L, 0L));
+                                      0L, 1000L));
     if (mapped < CAL_WHITE_CLAMP_BELOW) mapped = 0;
     cal[i] = mapped;
   }

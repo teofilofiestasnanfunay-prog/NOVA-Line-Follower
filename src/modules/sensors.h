@@ -8,7 +8,7 @@ void Sensors_readRaw(int *raw, uint8_t N);  // fills raw[0..N-1], 0..1023
 void MUX_debugPrintMapping();
 #endif
 
-// Calibration capture/load/save and calibrated read (0..1000)
+// Calibration capture/load/save and calibrated read (0..1000, white = 1000)
 void Calib_load(int *bn, int *bf, int *wn, int *wf, uint8_t N);
 void Calib_save(const int *bn,const int *bf,const int *wn,const int *wf, uint8_t N);
 

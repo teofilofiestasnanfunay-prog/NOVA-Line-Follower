@@ -21,9 +21,9 @@ inline float Kd_default() { return 0.1f; }  // Kd = 0.23529 -> 255*0.23529 ~ 60
 #define RUN_STROBE_MS        500   // non-blocking toggle interval during run (blue channel)
 
 // Calibration tuning
-#define CAL_WHITE_MARGIN_PCT  10   // % of [black..white] range trimmed from white to help reach 0
+#define CAL_WHITE_MARGIN_PCT  10   // % of [black..white] range trimmed from white to help reach 1000
 #define CAL_WHITE_MARGIN_MIN   2   // minimum units trimmed from white bound
-#define CAL_WHITE_CLAMP_BELOW 750   // calibrated values below this are forced to 0
+#define CAL_WHITE_CLAMP_BELOW 750   // calibrated values below this are forced to 0 (black)
 
 // EEPROM layout (same as your previous code)
 #define EE_OFF_BLACK_NEAR   100
