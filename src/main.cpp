@@ -23,7 +23,6 @@ static unsigned long sessionStartMs = 0;
 static bool startDelayActive = false;
 static unsigned long startDelayStartMs = 0;
 static bool startDelayFromGo = false;
-static bool sessionFromGo = false; // tracks if current session started from GO
 static int  BASE_PWM = BASE_PWM_DEFAULT;
 static bool emgActive = false;
 static bool posAtExtreme = false;
@@ -50,12 +49,17 @@ static void startRaceNow(bool fromGo) {
   rampActive = true;
   sessionActive = true;
   sessionStartMs = millis(); // run session starts counting when we actually move
-  sessionFromGo = fromGo;    // Track source to decide if GO lines can stop the run
+  (void)fromGo;
+#if START_MODE == START_MODE_GO
   Serial.println(F(">> START (GO)"));
+#else
+  Serial.println(F(">> START (BUTTON)"));
+#endif
 }
 
 static void startRace(bool fromGo) {
   Motors_cmdPct(0,0);
+#if START_MODE == START_MODE_BUTTON
   if (RUN_START_DELAY_ENABLE && RUN_START_DELAY_MS > 0) {
     startDelayActive = true;
     startDelayStartMs = millis();
@@ -63,6 +67,7 @@ static void startRace(bool fromGo) {
     Serial.print(F(">> START DELAY ")); Serial.print(RUN_START_DELAY_MS); Serial.println(F(" ms"));
     return;
   }
+#endif
   startRaceNow(fromGo);
 }
 
@@ -142,15 +147,23 @@ void setup() {
 
   PID_init(Kp_default(), Kd_default());
 
-  // Initial GO state
+  // Initial run state
   #ifdef ENABLE_DIAG
     if (g_mode >= 4) {
-      if (GO_read()) startRace(true); else stopRace();
+      #if START_MODE == START_MODE_GO
+        if (GO_read()) startRace(true); else stopRace();
+      #else
+        stopRace();
+      #endif
     } else {
       stopRace();
     }
   #else
-    if (GO_read()) startRace(true); else stopRace();
+    #if START_MODE == START_MODE_GO
+      if (GO_read()) startRace(true); else stopRace();
+    #else
+      stopRace();
+    #endif
   #endif
 }
 
@@ -164,17 +177,22 @@ void loop() {
 
   // Start/Stop triggers
   if (!sessionActive && !startDelayActive) {
+#if START_MODE == START_MODE_GO
     if (GO_edgeStart())  { startRace(true);  }
+#else
     if (ModeBtn_edgePressed()) { startRace(false); }
+#endif
   }
-  // Only GO-based sessions listen to GO falling edge for stop
-  if (sessionActive && sessionFromGo && GO_edgeStop())  { Motors_brake(); stopRace(); }
 
-  // Auto-stop after configured session window if still running
+#if START_MODE == START_MODE_GO
+  if (sessionActive && GO_edgeStop())  { Motors_brake(); stopRace(); }
+#else
+  // Auto-stop after configured session window if still running (Button mode only)
   if (sessionActive && (millis() - sessionStartMs >= (unsigned long)RUN_SESSION_MS)) {
     Motors_brake();
     stopRace();
   }
+#endif
 
   rampBase_update();
 
@@ -217,7 +235,7 @@ void loop() {
       if (!posAtExtreme) {
         posAtExtreme = true;
         extremeStartMs = millis();
-      } else if (!emgActive && (millis() - extremeStartMs >= 100UL)) {// tiempo de espera para apagado
+      } else if (!emgActive && (millis() - extremeStartMs >= 500UL)) {// tiempo de espera para apagado
         emgActive = true;
         stopRace();
         Serial.println(F(">> EMERGENCY STOP: line lost"));
