@@ -16,7 +16,7 @@ int PID_computePosition(const int *cal, uint8_t N) {
   static int  lastPos = midPos;
   static bool lastWasLeft = true;           // keep side for zero-sum fallback
   for (uint8_t i = 0; i < N; i++) {
-    int val = cal[i];         // 0..1000
+    int val = 1000 - cal[i];  // invert so black=1000, white=0 for position
     sum    += val;
     weight += (long)val * i * 1000;
   }
