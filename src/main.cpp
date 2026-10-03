@@ -18,9 +18,7 @@ static int  whiteNear[NUM_SENSORS], whiteFar[NUM_SENSORS];
 static int  basePWM_current = 0;
 static bool rampActive = false;
 static unsigned long lastRampMs = 0;
-static bool sessionActive = false;
 static unsigned long sessionStartMs = 0;
-static bool startDelayActive = false;
 static unsigned long startDelayStartMs = 0;
 static bool startDelayFromGo = false;
 static int  BASE_PWM = BASE_PWM_DEFAULT;
@@ -28,6 +26,23 @@ static bool emgActive = false;
 static bool posAtExtreme = false;
 static unsigned long extremeStartMs = 0;
 static uint8_t g_mode = 2; // selected mode persisted for loop
+
+// ======== RUN STATE GRAPH ========
+// Idle --(start trigger)--> StartDelay --(delay elapsed)--> Running
+// Running --(stop trigger | session timeout | line-lost emergency)--> Idle
+// StartDelay only exists in BUTTON start mode; GO mode goes Idle -> Running directly.
+enum class RunState : uint8_t { Idle, StartDelay, Running };
+static RunState runState = RunState::Idle;
+
+static void setRunState(RunState s) { runState = s; }
+
+// Mid-race speed profile: decelerate at SPEED_DECEL_TRIGGER_MS, hold at
+// SPEED_DECEL_PWM, then re-accelerate to BASE_PWM once all sensors read white.
+enum class SpeedPhase : uint8_t { Normal, Decelerating, Slow, Accelerating };
+static SpeedPhase speedPhase = SpeedPhase::Normal;
+static bool speedDecelTriggered = false;
+static unsigned long speedPhaseStartMs = 0;
+static int speedPhaseStartPWM = 0;
 
 // ======== HELPERS ========
 static void rampBase_update() {
@@ -43,12 +58,70 @@ static void rampBase_update() {
   }
 }
 
+static bool allSensorsWhite(const int *cal, uint8_t N) {
+  for (uint8_t i = 0; i < N; i++) {
+    if (cal[i] < ALL_WHITE_THRESHOLD) return false;
+  }
+  return true;
+}
+
+// Drives basePWM_current through the decel/slow/accel sequence.
+// lineIsWhite = true when every sensor currently reads white.
+static void updateSpeedPhase(bool lineIsWhite) {
+  unsigned long now = millis();
+  switch (speedPhase) {
+    case SpeedPhase::Normal:
+      if (SPEED_DECEL_ENABLE && !speedDecelTriggered && (now - sessionStartMs >= (unsigned long)SPEED_DECEL_TRIGGER_MS)) {
+        speedDecelTriggered = true;
+        speedPhase = SpeedPhase::Decelerating;
+        speedPhaseStartMs = now;
+        speedPhaseStartPWM = basePWM_current;
+      }
+      break;
+
+    case SpeedPhase::Decelerating: {
+      unsigned long elapsed = now - speedPhaseStartMs;
+      if (elapsed >= (unsigned long)SPEED_DECEL_RAMP_MS) {
+        basePWM_current = SPEED_DECEL_PWM;
+        speedPhase = SpeedPhase::Slow;
+      } else {
+        long delta = (long)SPEED_DECEL_PWM - (long)speedPhaseStartPWM;
+        basePWM_current = speedPhaseStartPWM + (int)(delta * (long)elapsed / (long)SPEED_DECEL_RAMP_MS);
+      }
+      break;
+    }
+
+    case SpeedPhase::Slow:
+      basePWM_current = SPEED_DECEL_PWM;
+      if (lineIsWhite) {
+        speedPhase = SpeedPhase::Accelerating;
+        speedPhaseStartMs = now;
+        speedPhaseStartPWM = basePWM_current;
+      }
+      break;
+
+    case SpeedPhase::Accelerating: {
+      unsigned long elapsed = now - speedPhaseStartMs;
+      if (elapsed >= (unsigned long)SPEED_ACCEL_RAMP_MS) {
+        basePWM_current = BASE_PWM;
+        speedPhase = SpeedPhase::Normal;
+      } else {
+        long delta = (long)BASE_PWM - (long)speedPhaseStartPWM;
+        basePWM_current = speedPhaseStartPWM + (int)(delta * (long)elapsed / (long)SPEED_ACCEL_RAMP_MS);
+      }
+      break;
+    }
+  }
+}
+
 static void startRaceNow(bool fromGo) {
   basePWM_current = 0;
   lastRampMs = millis();
   rampActive = true;
-  sessionActive = true;
+  setRunState(RunState::Running);
   sessionStartMs = millis(); // run session starts counting when we actually move
+  speedPhase = SpeedPhase::Normal;
+  speedDecelTriggered = false;
   (void)fromGo;
 #if START_MODE == START_MODE_GO
   Serial.println(F(">> START (GO)"));
@@ -61,7 +134,7 @@ static void startRace(bool fromGo) {
   Motors_cmdPct(0,0);
 #if START_MODE == START_MODE_BUTTON
   if (RUN_START_DELAY_ENABLE && RUN_START_DELAY_MS > 0) {
-    startDelayActive = true;
+    setRunState(RunState::StartDelay);
     startDelayStartMs = millis();
     startDelayFromGo = fromGo;
     Serial.print(F(">> START DELAY ")); Serial.print(RUN_START_DELAY_MS); Serial.println(F(" ms"));
@@ -72,11 +145,10 @@ static void startRace(bool fromGo) {
 }
 
 static void stopRace() {
-  startDelayActive = false;
   rampActive = false;
   basePWM_current = 0;
   Motors_cmdPct(0,0);
-  sessionActive = false;
+  setRunState(RunState::Idle);
   Serial.println(F(">> STOP (GO)"));
 }
 
@@ -170,13 +242,12 @@ void setup() {
 // ======== LOOP ========
 void loop() {
   // Start delay handler: only arm ramp/session after delay expires
-  if (startDelayActive && (millis() - startDelayStartMs >= (unsigned long)RUN_START_DELAY_MS)) {
-    startDelayActive = false;
+  if (runState == RunState::StartDelay && (millis() - startDelayStartMs >= (unsigned long)RUN_START_DELAY_MS)) {
     startRaceNow(startDelayFromGo);
   }
 
   // Start/Stop triggers
-  if (!sessionActive && !startDelayActive) {
+  if (runState == RunState::Idle) {
 #if START_MODE == START_MODE_GO
     if (GO_edgeStart())  { startRace(true);  }
 #else
@@ -185,10 +256,10 @@ void loop() {
   }
 
 #if START_MODE == START_MODE_GO
-  if (sessionActive && GO_edgeStop())  { Motors_brake(); stopRace(); }
+  if (runState == RunState::Running && GO_edgeStop())  { Motors_brake(); stopRace(); }
 #else
   // Auto-stop after configured session window if still running (Button mode only)
-  if (sessionActive && (millis() - sessionStartMs >= (unsigned long)RUN_SESSION_MS)) {
+  if (runState == RunState::Running && (millis() - sessionStartMs >= (unsigned long)RUN_SESSION_MS)) {
     Motors_brake();
     stopRace();
   }
@@ -224,7 +295,7 @@ void loop() {
   }
   #endif
 
-  if (sessionActive) {
+  if (runState == RunState::Running) {
     Sensors_readCalibrated(blackNear, blackFar, whiteNear, whiteFar,
                            rawSensor, calSensor, NUM_SENSORS);
     int pos = PID_computePosition(calSensor, NUM_SENSORS);
@@ -246,6 +317,7 @@ void loop() {
     }
 
     if (!emgActive) {
+      updateSpeedPhase(allSensorsWhite(calSensor, NUM_SENSORS));
       int L = clampPWM(basePWM_current + pid);
       int R = clampPWM(basePWM_current - pid);
       Motors_cmdPct(L, R);

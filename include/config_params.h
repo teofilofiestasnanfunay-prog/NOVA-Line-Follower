@@ -2,11 +2,11 @@
 
 // ===================== PARAMETERS =====================
 // PID
-inline float Kp_default() { return 0.0085f; } // Kp = 0.0235 -> 255*0.0235 ~ 6
-inline float Kd_default() { return 0.05f; }  // Kd = 0.23529 -> 255*0.23529 ~ 60
+inline float Kp_default() { return 0.0118f; }
+inline float Kd_default() { return 0.20f; }
 #define LINE_SETPOINT     5500  // with 12 sensors: 0..11000
 
-#define BASE_PWM_DEFAULT     40   // [0..255]
+#define BASE_PWM_DEFAULT     65  // [0..255]
 
 // Motor ramp (left and right share the same ramp)
 #define MOTOR_RAMP_STEP         5    // [0..255 per step]
@@ -15,15 +15,24 @@ inline float Kd_default() { return 0.05f; }  // Kd = 0.23529 -> 255*0.23529 ~ 60
 // Start mode: choose how the race starts/stops (mutually exclusive)
 #define START_MODE_BUTTON 0   // Start: short button press (+ start delay). Stop: session timeout or emergency.
 #define START_MODE_GO     1   // Start: PIN_GO rising edge (no delay). Stop: PIN_GO falling edge or emergency.
-#define START_MODE         START_MODE_BUTTON
+#define START_MODE         START_MODE_GO   // puedes usar de frente 0 (botón) o 1 (GO) para cambiar el modo de arranque
 
 // Run session management
-#define RUN_SESSION_MS      2500   // auto-stop window (ms) after a start (Button mode only)
+#define RUN_SESSION_MS      14000   // auto-stop window (ms) after a start (Button mode only)
 #define RUN_START_DELAY_ENABLE 1   // 0 = sin retraso, 1 = aplica espera antes de mover (Button mode only)
 #define RUN_START_DELAY_MS     1500   // tiempo de espera tras el boton antes de mover (ms)
 
 // LED patterns
 #define RUN_STROBE_MS        500   // non-blocking toggle interval during run (blue channel)
+
+// Mid-race speed profile: decelerate at a fixed time, then re-accelerate once
+// the line disappears (e.g. before/after a jump). Fires once per run.
+#define SPEED_DECEL_ENABLE       0   // 0 = desactivado (siempre a BASE_PWM), 1 = activa la desaceleración
+#define SPEED_DECEL_TRIGGER_MS  7000   // time after start to begin decelerating (ms)
+#define SPEED_DECEL_RAMP_MS     1000   // deceleration ramp duration (ms)
+#define SPEED_DECEL_PWM            40   // base PWM reached after deceleration (half of BASE_PWM_DEFAULT)
+#define SPEED_ACCEL_RAMP_MS       250   // re-acceleration ramp duration once all-white is detected (ms)
+#define ALL_WHITE_THRESHOLD       900   // calSensor reading (0=black..1000=white) above which a sensor counts as white
 
 // Calibration tuning
 #define CAL_WHITE_MARGIN_PCT  10   // % of [black..white] range trimmed from white to help reach 1000
